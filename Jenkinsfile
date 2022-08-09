@@ -1,41 +1,29 @@
 node{
-   stage('SCM Checkout'){
-     git 'https://github.com/damodaranj/my-app.git'
-   }
-   stage('Compile-Package'){
-
-      def mvnHome =  tool name: 'maven3', type: 'maven'   
-      sh "${mvnHome}/bin/mvn clean package"
-	  sh 'mv target/myweb*.war target/newapp.war'
-   }
-   stage('SonarQube Analysis') {
-	        def mvnHome =  tool name: 'maven3', type: 'maven'
-	        withSonarQubeEnv('sonar') { 
-	          sh "${mvnHome}/bin/mvn sonar:sonar"
-	        }
-	    }
-   stage('Build Docker Imager'){
-   sh 'docker build -t saidamo/myweb:0.0.2 .'
-   }
-   stage('Docker Image Push'){
-   withCredentials([string(credentialsId: 'dockerPass', variable: 'dockerPassword')]) {
-   sh "docker login -u saidamo -p ${dockerPassword}"
+    def buildNumber = BUILD_NUMBER
+    stage("Git clone"){
+        git url: 'https://github.com/Vignesh2064/my-app1.git', branch: 'master'
     }
-   sh 'docker push saidamo/myweb:0.0.2'
-   }
-   stage('Nexus Image Push'){
-   sh "docker login -u admin -p admin123 65.1.108.217:8083"
-   sh "docker tag saidamo/myweb:0.0.2 65.1.108.217:8083/damo:1.0.0"
-   sh 'docker push 65.1.108.217:8083/damo:1.0.0'
-   }
-   stage('Remove Previous Container'){
-	try{
-		sh 'docker rm -f tomcattest'
-	}catch(error){
-		//  do nothing if there is an exception
-	}
-   stage('Docker deployment'){
-   sh 'docker run -d -p 8090:8080 --name tomcattest saidamo/myweb:0.0.2' 
+    
+    stage("Maven build package"){
+        def mavenHome= tool name: "Maven",type: "maven"
+        sh "${mavenHome}/bin/mvn clean package"
+        sh 'mv target/myweb*.war target/newapp.war'
+    }
+    stage("Build Docker Image"){
+       sh "docker build -t vignesh2064/newapp:${buildNumber} ."  
+    }
+    stage("Docker login and push"){
+        withCredentials([string(credentialsId: 'Dockerpwd', variable: 'Dockerpwd')]) {
+            sh "docker login -u vignesh2064 -p ${Dockerpwd}" 
+            
+        }
+    stage("Docker push"){
+        sh "docker push vignesh2064/newapp:${buildNumber}"
+    }
+    stage(" Deploy application in docker container")
+    sshagent(['17f945c1-b86e-404b-a5b6-fdda1fa29104']) {
+     sh "ssh -o StrictHostkeyChecking=no ubuntu@172.31.90.13 docker rm -f new || true "
+     sh "ssh -o StrictHostkeyChecking=no ubuntu@172.31.90.13 docker run -itd --name new -p 8080:8080 vignesh2064/newapp:${buildNumber}"
    }
 }
 }
