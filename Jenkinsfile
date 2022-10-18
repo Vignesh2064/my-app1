@@ -1,6 +1,6 @@
 node{
     def buildNumber = BUILD_NUMBER
-    stage("Git clone"){
+    stage("Git code"){
         git url: 'https://github.com/Vignesh2064/my-app1.git', branch: 'master'
     }
     
@@ -9,22 +9,29 @@ node{
         sh "${mavenHome}/bin/mvn clean package"
         sh 'mv target/myweb*.war target/newapp.war'
     }
+       stage('SonarQube Analysis') {
+	        def mvnHome =  tool name: 'Maven', type: 'maven'
+	        withSonarQubeEnv(credentialsId: 'newtocken') {
+	          sh "mvn sonar:sonar"
+	        }
+	    }
     stage("Build Docker Image"){
        sh "docker build -t vignesh2064/newapp:${buildNumber} ."  
     }
     stage("Docker login and push"){
-        withCredentials([string(credentialsId: 'Dockerpwd', variable: 'Dockerpwd')]) {
-            sh "docker login -u vignesh2064 -p ${Dockerpwd}" 
-            
+      withCredentials([string(credentialsId: 'Dockernewone', variable: 'Docker')]) {
+       sh "docker login -u vignesh2064 -p ${Docker}" 
+          
+      }
+          
         }
     stage("Docker push"){
         sh "docker push vignesh2064/newapp:${buildNumber}"
     }
     stage(" Deploy application in docker container")
-    sshagent(['17f945c1-b86e-404b-a5b6-fdda1fa29104']) {
-     sh "ssh -o StrictHostkeyChecking=no ubuntu@172.31.90.13 docker rm -f new || true "
-     sh "ssh -o StrictHostkeyChecking=no ubuntu@172.31.90.13 docker run -itd --name new -p 8080:8080 vignesh2064/newapp:${buildNumber}"
+     {
+     sh "docker rm -f new || true "
+     sh "docker run -itd --name new -p 8090:8080 vignesh2064/newapp:${buildNumber}"
    }
-}
-}
 
+}
